@@ -1,0 +1,261 @@
+{
+  "providers": ["aws", "azure", "gcp"],
+
+  "resources": {
+    "deployment": {
+      "label": "Deployment",
+      "description": "Déploie un ensemble de pods identiques — utile pour lancer des applications sans état.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "label": "Nom de l'application",
+          "comment": "Nom unique du déploiement. Servira à identifier le Deployment dans Kubernetes (DNS-compatible). Influence le nom des pods et des labels."
+        },
+        "namespace": {
+          "type": "string",
+          "required": false,
+          "label": "Namespace",
+          "default": "default",
+          "comment": "Namespace Kubernetes dans lequel créer le déploiement. Permet d’isoler les ressources."
+        },
+        "replicas": {
+          "type": "integer",
+          "required": true,
+          "default": 1,
+          "label": "Nombre de réplicas",
+          "comment": "Nombre de pods à lancer simultanément. Plus élevé = plus de capacité, mais plus de ressources consommées."
+        },
+        "containers": {
+          "type": "list",
+          "label": "Containers (dans le pod)",
+          "comment": "Définis les containers à lancer dans chaque pod — image, ports, variables, volumes, etc.",
+          "item": {
+            "name": {
+              "type": "string",
+              "label": "Nom du container",
+              "comment": "Nom du container à l’intérieur du pod — utile pour le repérage en interne."
+            },
+            "image": {
+              "type": "string",
+              "label": "Image Docker",
+              "comment": "Chemin de l’image Docker (ex: monrepo/monimage:tag). Indique quel code/logiciel sera exécuté."
+            },
+            "ports": {
+              "type": "list",
+              "label": "Ports exposés (containerPort)",
+              "comment": "Ports sur lesquels le container écoute — utile pour la création de Service ou Ingress."
+            },
+            "env": {
+              "type": "map",
+              "label": "Variables d’environnement",
+              "comment": "Variables d’environnement passées au container. Pour configurer l’application (ex: DB_HOST, API_KEY…)."
+            },
+            "volumeMounts": {
+              "type": "list",
+              "label": "Volumes montés",
+              "comment": "Volumes (PVC, ConfigMap, etc.) montés dans le container — utile pour stockage persistant ou configuration."
+            }
+          }
+        }
+      },
+      "template": {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "metadata": { "name": "$name", "namespace": "$namespace" },
+        "spec": {
+          "replicas": "$replicas",
+          "selector": { "matchLabels": { "app": "$name" } },
+          "template": {
+            "metadata": { "labels": { "app": "$name" } },
+            "spec": { "containers": "$containers" }
+          }
+        }
+      }
+    },
+
+    "service": {
+      "label": "Service",
+      "description": "Expose un Deployment ou un Pod pour le rendre accessible (interne ou externe selon type).",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "label": "Nom du service",
+          "comment": "Identifiant du service — utilisé comme nom Kubernetes. Correspond à un point d’accès réseau pour vos pods."
+        },
+        "namespace": {
+          "type": "string",
+          "default": "default",
+          "label": "Namespace",
+          "comment": "Namespace dans lequel créer le service — doit correspondre au namespace du deployment si vous en utilisez un."
+        },
+        "type": {
+          "type": "string",
+          "required": true,
+          "label": "Type de service",
+          "options": ["ClusterIP", "NodePort", "LoadBalancer"],
+          "comment": "Définit comment le service est exposé : \n– ClusterIP = accessible uniquement à l’intérieur du cluster\n– NodePort = port fixe sur tous les nœuds\n– LoadBalancer = load-balancer externe (cloud) — nécessite annotations pour AWS / Azure / GCP"
+        },
+        "ports": {
+          "type": "list",
+          "label": "Ports (service → container)",
+          "comment": "Liste des mappages ports externes → ports du container. Permet d’accéder à l’application via le service.",
+          "item": {
+            "port": { "type": "integer", "label": "Port externe" },
+            "targetPort": { "type": "integer", "label": "Port interne (container)" }
+          }
+        },
+        "selector": {
+          "type": "map",
+          "label": "Selector (labels pods)",
+          "comment": "Labels permettant de lier le service aux pods correspondants (ex: app: monapp)."
+        },
+        "annotations": {
+          "type": "map",
+          "label": "Annotations Kubernetes (optionnel)",
+          "comment": "Annotations supplémentaires — utiles pour configurer un load-balancer cloud ou des comportements spécifiques (ex: AWS NLB, SSL, health-checks…)"
+        }
+      },
+      "template": {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": { "name": "$name", "namespace": "$namespace", "annotations": "$annotations" },
+        "spec": { "type": "$type", "ports": "$ports", "selector": "$selector" }
+      },
+      "provider_specific": {
+        "aws": {
+          "supported_annotations": [
+            "service.beta.kubernetes.io/aws-load-balancer-type",
+            "service.beta.kubernetes.io/aws-load-balancer-ssl-cert",
+            "service.beta.kubernetes.io/aws-load-balancer-ssl-ports",
+            "service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol",
+            "service.beta.kubernetes.io/aws-load-balancer-healthcheck-port",
+            "service.beta.kubernetes.io/aws-load-balancer-target-group-attributes"
+          ],
+          "comment": "Ces annotations contrôlent le comportement du LoadBalancer AWS (NLB/ALB) — type, SSL, santé, cibles, etc." 
+        },
+        "azure": {
+          "notes": "AKS LoadBalancer standard — selon la configuration Azure, des annotations spécifiques peuvent être ajoutées."
+        },
+        "gcp": {
+          "notes": "GKE génère automatiquement un load balancer pour type LoadBalancer — peu d’annotations nécessaires."
+        }
+      }
+    },
+
+    "configMap": {
+      "label": "ConfigMap",
+      "description": "Stocke des paires clé/valeur non sensibles, utilisées comme configuration d’application — utile pour séparer code et configuration. :contentReference[oaicite:0]{index=0}",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "label": "Nom du ConfigMap",
+          "comment": "Nom unique pour référencer ce ConfigMap. Servira pour monter la config dans un pod ou l’utiliser comme variable d’environnement."
+        },
+        "namespace": {
+          "type": "string",
+          "default": "default",
+          "label": "Namespace",
+          "comment": "Namespace dans lequel créer le ConfigMap."
+        },
+        "data": {
+          "type": "map",
+          "label": "Données (clé / valeur)",
+          "comment": "Couple clé-valeur de configuration. Par exemple: `DATABASE_HOST: db.local`, `LOG_LEVEL: info`. Ne pas y mettre de données sensibles — utilisez un Secret pour cela."
+        }
+      },
+      "template": {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": { "name": "$name", "namespace": "$namespace" },
+        "data": "$data"
+      }
+    },
+
+    "secret": {
+      "label": "Secret",
+      "description": "Stocke des données sensibles (mots de passe, tokens…) encodées en base64 — à utiliser plutôt qu’un ConfigMap si les données ne doivent pas être visibles. ",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "label": "Nom du Secret",
+          "comment": "Nom unique pour le secret — servira à le référencer dans les pods."
+        },
+        "namespace": {
+          "type": "string",
+          "default": "default",
+          "label": "Namespace",
+          "comment": "Namespace dans lequel créer le Secret."
+        },
+        "type": {
+          "type": "string",
+          "default": "Opaque",
+          "label": "Type de secret",
+          "comment": "Type du Secret Kubernetes (par défaut `Opaque`). Selon ce type, Kubernetes traitera différemment certaines données (ex: TLS, Docker-registry…)."
+        },
+        "data": {
+          "type": "map",
+          "label": "Données (clé → valeur encodée base64)",
+          "comment": "Les valeurs doivent être encodées en base64. Exemple: `PASSWORD: YmFzZTY0ZW5jb2RlZA==`. Utilisez un Secret pour les informations sensibles."
+        }
+      },
+      "template": {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": { "name": "$name", "namespace": "$namespace" },
+        "type": "$type",
+        "data": "$data"
+      }
+    },
+
+    "ingress": {
+      "label": "Ingress",
+      "description": "Définit des règles HTTP/HTTPS d’entrée — utile pour exposer des services via un nom de domaine ou des routes web.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "label": "Nom de l’Ingress",
+          "comment": "Nom unique dans Kubernetes — sert à identifier l’Ingress."
+        },
+        "namespace": {
+          "type": "string",
+          "default": "default",
+          "label": "Namespace",
+          "comment": "Namespace dans lequel créer l’Ingress. Doit correspondre au namespace du Service qu’il expose."
+        },
+        "annotations": {
+          "type": "map",
+          "label": "Annotations (optionnel)",
+          "comment": "Annotations spécifiques au contrôleur Ingress ou au provider cloud (ex: contrôleur AWS ALB, TLS, redirections…)."
+        },
+        "rules": {
+          "type": "list",
+          "label": "Règles HTTP(s)",
+          "comment": "Liste des règles : pour chaque domaine (host), les paths mappés vers un service + port.",
+          "item": {
+            "host": { "type": "string", "label": "Nom de domaine (ex: www.exemple.com)", "comment": "Le domaine sous lequel votre service sera accessible publiquement." },
+            "paths": {
+              "type": "list",
+              "label": "Paths",
+              "item": {
+                "path": { "type": "string", "label": "Chemin (ex: /)", "comment": "Chemin URL exposé — ex: /, /api, /admin…" },
+                "serviceName": { "type": "string", "label": "Service cible", "comment": "Nom du Service Kubernetes exposé par cette route." },
+                "servicePort": { "type": "integer", "label": "Port service", "comment": "Port du service Kubernetes vers lequel envoyer le trafic." }
+              }
+            }
+          }
+        }
+      },
+      "template": {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "Ingress",
+        "metadata": { "name": "$name", "namespace": "$namespace", "annotations": "$annotations" },
+        "spec": { "rules": "$rules" }
+      }
+    }
+  }
+}

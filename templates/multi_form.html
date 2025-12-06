@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Créer plusieurs ressources Kubernetes</h2>
+
+<form action="/generate-multi" method="POST" id="multiForm">
+
+    <label>Provider:</label>
+    <select name="provider_name">
+        {% for p in providers %}
+        <option value="{{ p }}">{{ p }}</option>
+        {% endfor %}
+    </select>
+
+    <hr>
+
+    <div id="resourcesContainer">
+        <!-- Ici seront injectés les blocs de formulaire individuels -->
+    </div>
+
+    <button type="button" onclick="addResource()">+ Ajouter une ressource</button>
+
+    <br><br>
+    <button type="submit">Générer YAML multi-ressources</button>
+</form>
+
+<script>
+let resourceIndex = 0;
+
+function addResource() {
+    let container = document.getElementById("resourcesContainer");
+    let html = `
+        <div class="resource-block">
+            <h3>Ressource #${resourceIndex + 1}</h3>
+
+            <label>Type de ressource:</label>
+            <select name="resources[${resourceIndex}][type]" onchange="fetchFields(this, ${resourceIndex})">
+                <option disabled selected>-- Choisir --</option>
+                {% for r in resources %}
+                <option value="{{ r }}">{{ r }}</option>
+                {% endfor %}
+            </select>
+
+            <div id="fields_${resourceIndex}">
+                <!-- champs dynamiques -->
+            </div>
+
+            <hr>
+        </div>
+    `;
+    container.insertAdjacentHTML("beforeend", html);
+    resourceIndex++;
+}
+
+function fetchFields(selectElement, index) {
+    let resourceType = selectElement.value;
+
+    fetch(`/form-fields/${resourceType}`)
+        .then(response => response.json())
+        .then(schema => {
+            let html = "";
+
+            schema.forEach(field => {
+                html += `
+                    <label>${field.label}</label>
+                    <input type="text" name="resources[${index}][${field.name}]" placeholder="${field.comment}">
+                    <small>${field.comment}</small>
+                    <br><br>
+                `;
+            });
+
+            document.getElementById(`fields_${index}`).innerHTML = html;
+        });
+}
+</script>
+
+{% endblock %}
