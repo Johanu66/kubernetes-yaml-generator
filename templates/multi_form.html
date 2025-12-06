@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Créer plusieurs ressources Kubernetes</h2>
+<h2>Créer un ensemble de ressources Kubernetes</h2>
+
+<p>
+    Ajoutez autant de ressources que vous voulez.<br>
+    Le YAML final contiendra toutes les ressources dans un seul fichier.
+</p>
 
 <form action="/generate-multi" method="POST" id="multiForm">
 
-    <label>Provider:</label>
+    <!-- Choix du provider -->
+    <label><strong>Provider Cloud :</strong></label>
     <select name="provider_name">
         {% for p in providers %}
         <option value="{{ p }}">{{ p }}</option>
@@ -14,46 +20,69 @@
 
     <hr>
 
-    <div id="resourcesContainer">
-        <!-- Ici seront injectés les blocs de formulaire individuels -->
-    </div>
+    <!-- Conteneur où seront ajoutées les ressources -->
+    <div id="resourcesContainer"></div>
 
-    <button type="button" onclick="addResource()">+ Ajouter une ressource</button>
+    <button type="button" class="btn" onclick="addResource()">+ Ajouter une ressource</button>
 
     <br><br>
-    <button type="submit">Générer YAML multi-ressources</button>
+    <button type="submit" class="btn">Générer le YAML multi-ressources</button>
+
 </form>
 
 <script>
 let resourceIndex = 0;
 
+/* Ajoute un nouveau bloc ressource */
 function addResource() {
-    let container = document.getElementById("resourcesContainer");
-    let html = `
-        <div class="resource-block">
+    const container = document.getElementById("resourcesContainer");
+
+    const block = `
+        <div class="resource-block" id="resource_${resourceIndex}">
             <h3>Ressource #${resourceIndex + 1}</h3>
 
-            <label>Type de ressource:</label>
-            <select name="resources[${resourceIndex}][type]" onchange="fetchFields(this, ${resourceIndex})">
+            <!-- Sélecteur du type de ressource -->
+            <label>Type de ressource :</label>
+            <select name="resources[${resourceIndex}][type]" 
+                    onchange="loadFields(${resourceIndex})"
+                    class="resource-type">
                 <option disabled selected>-- Choisir --</option>
                 {% for r in resources %}
                 <option value="{{ r }}">{{ r }}</option>
                 {% endfor %}
             </select>
 
-            <div id="fields_${resourceIndex}">
-                <!-- champs dynamiques -->
-            </div>
+            <br><br>
 
+            <!-- Bouton pour afficher les options avancées -->
+            <label>
+                <input type="checkbox" onchange="toggleAdvanced(${resourceIndex})">
+                Afficher les options avancées
+            </label>
+
+            <div id="fields_${resourceIndex}" class="fields-container"></div>
+
+            <button type="button" class="btn-small btn-danger" onclick="removeResource(${resourceIndex})">Supprimer cette ressource</button>
             <hr>
         </div>
     `;
-    container.insertAdjacentHTML("beforeend", html);
+
+    container.insertAdjacentHTML("beforeend", block);
     resourceIndex++;
 }
 
-function fetchFields(selectElement, index) {
-    let resourceType = selectElement.value;
+
+/* Supprime un bloc ressource */
+function removeResource(index) {
+    const block = document.getElementById(`resource_${index}`);
+    block.remove();
+}
+
+
+/* Charge dynamiquement les champs via /form-fields/<resource> */
+function loadFields(index) {
+    const typeSelector = document.querySelector(`#resource_${index} select.resource-type`);
+    const resourceType = typeSelector.value;
 
     fetch(`/form-fields/${resourceType}`)
         .then(response => response.json())
@@ -61,17 +90,64 @@ function fetchFields(selectElement, index) {
             let html = "";
 
             schema.forEach(field => {
+                const isAdvanced = (field.level === "advanced");
+                const cssClass = isAdvanced ? "advanced-field" : "";
+
                 html += `
-                    <label>${field.label}</label>
-                    <input type="text" name="resources[${index}][${field.name}]" placeholder="${field.comment}">
-                    <small>${field.comment}</small>
-                    <br><br>
+                    <div class="field ${cssClass}">
+                        <label>${field.label}</label>
+                        ${renderField(field, index)}
+                        <small>${field.comment}</small>
+                        <br><br>
+                    </div>
                 `;
             });
 
             document.getElementById(`fields_${index}`).innerHTML = html;
+            toggleAdvanced(index);
         });
 }
+
+
+/* Génère le HTML d'un champ selon ui_control */
+function renderField(field, index) {
+    const name = `resources[${index}][${field.name}]`;
+    const defaultVal = field.default ?? "";
+    const placeholder = field.placeholder ?? "";
+
+    if (field.ui_control === "select" && field.options) {
+        let opts = field.options.map(opt => {
+            let selected = (opt === field.default) ? "selected" : "";
+            return `<option value="${opt}" ${selected}>${opt}</option>`;
+        }).join("");
+
+        return `<select name="${name}">${opts}</select>`;
+    }
+
+    if (field.ui_control === "number") {
+        return `<input type="number" name="${name}" value="${defaultVal}" placeholder="${placeholder}">`;
+    }
+
+    if (field.ui_control === "textarea") {
+        return `<textarea name="${name}" placeholder="${placeholder}"></textarea>`;
+    }
+
+    // Default = simple text input
+    return `<input type="text" name="${name}" value="${defaultVal}" placeholder="${placeholder}">`;
+}
+
+
+/* Masque ou affiche les champs advanced */
+function toggleAdvanced(index) {
+    const block = document.getElementById(`resource_${index}`);
+    const toggle = block.querySelector(`input[type="checkbox"]`);
+    const advancedFields = block.querySelectorAll(".advanced-field");
+
+    advancedFields.forEach(f => {
+        f.style.display = toggle.checked ? "block" : "none";
+    });
+}
+
 </script>
 
 {% endblock %}

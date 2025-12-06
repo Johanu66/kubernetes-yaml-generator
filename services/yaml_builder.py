@@ -1,16 +1,25 @@
 import yaml
 
+
 def build_yaml_from_template(resource_name, rules, form_data, provider_name):
     resource_rules = rules["resources"][resource_name]
     template = resource_rules["template"]
 
-    yaml_structure = replace_placeholders(template, form_data, provider_name)
+    # 1. Créer structure YAML avec variables remplacées
+    yaml_structure = replace_placeholders(template, form_data)
+
+    # 2. Appliquer les overrides du provider
+    yaml_structure = apply_provider_overrides(
+        yaml_structure,
+        resource_rules.get("provider_overrides", {}),
+        provider_name
+    )
 
     return yaml.dump(yaml_structure, sort_keys=False)
 
 
-def replace_placeholders(obj, form_data, provider_name):
-    """Remplace les variables $xxx par les valeurs dans form_data."""
+def replace_placeholders(obj, form_data):
+    """Remplace les variables $xxx dans le template par les valeurs utilisateur."""
 
     if isinstance(obj, dict):
         new_dict = {}
@@ -19,10 +28,39 @@ def replace_placeholders(obj, form_data, provider_name):
                 variable = value[1:]
                 new_dict[key] = form_data.get(variable)
             else:
-                new_dict[key] = replace_placeholders(value, form_data, provider_name)
+                new_dict[key] = replace_placeholders(value, form_data)
         return new_dict
 
     if isinstance(obj, list):
-        return [replace_placeholders(item, form_data, provider_name) for item in obj]
+        return [replace_placeholders(item, form_data) for item in obj]
 
     return obj
+
+
+def apply_provider_overrides(yaml_struct, overrides, provider_name):
+    """Injecte les overrides selon le provider dans le YAML final."""
+
+    provider_data = overrides.get(provider_name)
+    if not provider_data:
+        # Aucun override pour ce provider → rien à changer
+        return yaml_struct
+
+    # --- Cas 1 : annotations (Service, Ingress)
+    if "annotations" in provider_data:
+        yaml_struct.setdefault("metadata", {})
+        yaml_struct["metadata"].setdefault("annotations", {})
+
+        for key, value in provider_data["annotations"].items():
+            yaml_struct["metadata"]["annotations"][key] = value
+
+    # --- Cas 2 : storageClassName (PVC)
+    if "storageClassName" in provider_data:
+        yaml_struct.setdefault("spec", {})
+        yaml_struct["spec"]["storageClassName"] = provider_data["storageClassName"]
+
+    # --- Cas 3 : autres futures clés (extensible)
+    for key, value in provider_data.items():
+        if key not in ["annotations", "storageClassName"]:
+            yaml_struct[key] = value
+
+    return yaml_struct
