@@ -3,31 +3,27 @@
 
 <h2>Créer un ensemble de ressources Kubernetes</h2>
 
-<p>
-    Ajoutez autant de ressources que vous voulez.<br>
-    Le YAML final contiendra toutes les ressources dans un seul fichier.
-</p>
+<p>Ajoutez autant de ressources que nécessaire.  
+Elles seront regroupées dans un YAML unique.</p>
 
 <form action="/generate-multi" method="POST" id="multiForm">
 
-    <!-- Choix du provider -->
     <label><strong>Provider Cloud :</strong></label>
     <select name="provider_name">
         {% for p in providers %}
-        <option value="{{ p }}">{{ p }}</option>
+            <option value="{{ p }}">{{ p }}</option>
         {% endfor %}
     </select>
 
     <hr>
 
-    <!-- Conteneur où seront ajoutées les ressources -->
     <div id="resourcesContainer"></div>
 
     <button type="button" class="btn" onclick="addResource()">+ Ajouter une ressource</button>
 
     <br><br>
     <button type="submit" class="btn">Générer le YAML multi-ressources</button>
-
+    <a href="javascript:history.back()" class="btn">Retour</a>
 </form>
 
 <script>

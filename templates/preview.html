@@ -1,14 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
+
 <h2>Prévisualisation YAML</h2>
 
-<pre>{{ yaml_output }}</pre>
+<!-- Boutons d'action -->
+<div style="margin-bottom: 20px;">
+    <button class="btn" onclick="copyYAML()">Copier le YAML</button>
+    <a href="/download" class="btn">Télécharger le YAML</a>
+</div>
+
+<!-- Zone YAML -->
+<pre id="yamlBox">{{ yaml_output }}</pre>
 
 <br>
+<a href="javascript:history.back()" class="btn">Retour</a>
 
-<a href="/download" class="btn">📥 Télécharger le YAML</a>
-<br><br>
+<script>
+function copyYAML() {
+    const text = document.getElementById("yamlBox").innerText;
 
-<a href="/" class="btn">Retour</a>
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector("button[onclick='copyYAML()']");
+        const oldLabel = btn.innerText;
+
+        // Feedback visuel
+        btn.innerText = "Copié !";
+        btn.style.background = "#43a047";   // Vert succès
+
+        setTimeout(() => {
+            btn.innerText = oldLabel;
+            btn.style.background = "";   // Retour au style CSS normal
+        }, 1500);
+    });
+}
+</script>
 
 {% endblock %}

@@ -1,13 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Choisissez une ressource à générer</h2>
 
-<ul>
-    <li><a href="/convert">Convertir un YAML entre providers</a></li>
-    <li><a href="/form/multi">Créer plusieurs ressources</a></li>
-    {% for res in resources %}
-    <li><a href="/form/{{ res }}">{{ res }}</a></li>
-    {% endfor %}
-</ul>
+<h2>Actions disponibles</h2>
+
+<!-- ====================== -->
+<!-- SECTION : CONVERSION   -->
+<!-- ====================== -->
+
+<div class="action-section">
+    <div class="action-title">Conversion YAML</div>
+
+    <div class="action-card">
+        <a href="/convert">Convertir un YAML Kubernetes d’un provider à un autre</a>
+        <p style="margin-top:8px; color:#546e7a; font-size:14px;">
+            Transformez un fichier YAML existant pour l’adapter à AWS, Azure ou GCP.
+        </p>
+    </div>
+</div>
+
+<hr>
+
+<!-- ====================== -->
+<!-- SECTION : MULTI-GÉNÉRATION -->
+<!-- ====================== -->
+
+<div class="action-section">
+    <div class="action-title">Création multi-ressources</div>
+
+    <div class="action-card">
+        <a href="/form/multi">Créer un ensemble complet de ressources Kubernetes</a>
+        <p style="margin-top:8px; color:#546e7a; font-size:14px;">
+            Assemblez plusieurs ressources (Deployment, Service, Ingress…) dans un seul YAML.
+        </p>
+    </div>
+</div>
+
+<hr>
+
+<!-- ====================== -->
+<!-- SECTION : RESSOURCES UNITAIRES -->
+<!-- ====================== -->
+
+<div class="action-section">
+    <div class="action-title">Créer une ressource spécifique</div>
+
+    <div class="resource-grid">
+        {% for res in resources %}
+        <div class="resource-card">
+            <a href="/form/{{ res }}">{{ res }}</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 
 {% endblock %}

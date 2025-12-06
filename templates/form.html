@@ -1,22 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
+
 <h2>Créer une ressource : {{ resource_name }}</h2>
 
 <form action="/generate" method="POST">
 
-    <label>Provider:</label>
+    <label>Provider :</label>
     <select name="provider_name">
         {% for p in providers %}
-        <option value="{{ p }}">{{ p }}</option>
+            <option value="{{ p }}">{{ p }}</option>
         {% endfor %}
     </select>
-    <br><br>
 
-    <label>
+    <label style="margin-top:15px;">
         <input type="checkbox" id="advancedToggle" onchange="toggleAdvanced()"> 
         Afficher les options avancées
     </label>
-    <br><br>
 
     <input type="hidden" name="resource_name" value="{{ resource_name }}">
 
@@ -25,40 +24,25 @@
         <label>{{ field.label }}</label>
 
         {% if field.ui_control == "text" %}
-            <input 
-                type="text" 
-                name="{{ field.name }}" 
-                placeholder="{{ field.placeholder }}" 
-                value="{% if field.default is not none %}{{ field.default }}{% endif %}">
-        
+            <input type="text" name="{{ field.name }}" placeholder="{{ field.placeholder }}" value="{{ field.default }}">
         {% elif field.ui_control == "number" %}
-            <input 
-                type="number" 
-                name="{{ field.name }}" 
-                placeholder="{{ field.placeholder }}" 
-                value="{% if field.default is not none %}{{ field.default }}{% endif %}">
-        
-        {% elif field.ui_control == "select" and field.options %}
+            <input type="number" name="{{ field.name }}" value="{{ field.default }}">
+        {% elif field.ui_control == "select" %}
             <select name="{{ field.name }}">
                 {% for opt in field.options %}
-                <option value="{{ opt }}"
-                    {% if field.default == opt %}selected{% endif %}>
-                    {{ opt }}
-                </option>
+                <option value="{{ opt }}" {% if field.default == opt %}selected{% endif %}>{{ opt }}</option>
                 {% endfor %}
             </select>
-
         {% elif field.ui_control == "textarea" %}
             <textarea name="{{ field.name }}" placeholder="{{ field.placeholder }}"></textarea>
-
         {% endif %}
 
         <small>{{ field.comment }}</small>
     </div>
-    <br>
     {% endfor %}
 
-    <button type="submit">Générer YAML</button>
+    <button type="submit">Générer le YAML</button>
+    <a href="javascript:history.back()" class="btn">Retour</a>
 </form>
 
 <script>
@@ -70,12 +54,7 @@ function toggleAdvanced() {
         f.style.display = checked ? 'block' : 'none';
     });
 }
-
-// Masquer les champs avancés par défaut au chargement
-window.addEventListener('load', () => {
-    document.getElementById('advancedToggle').checked = false;
-    toggleAdvanced();
-});
+window.onload = toggleAdvanced;
 </script>
 
 {% endblock %}
