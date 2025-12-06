@@ -385,7 +385,8 @@
             "requests": {
               "storage": "$storage"
             }
-          }
+          },
+          "storageClassName": null
         }
       }
     },

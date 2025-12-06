@@ -1,6 +1,7 @@
 from flask import Flask
 from routes.form_routes import form_blueprint
 from routes.yaml_routes import yaml_blueprint
+from routes.converter_routes import converter_blueprint
 
 def create_app():
     app = Flask(__name__)
@@ -9,6 +10,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(form_blueprint)
     app.register_blueprint(yaml_blueprint)
+    app.register_blueprint(converter_blueprint)
 
     return app
 

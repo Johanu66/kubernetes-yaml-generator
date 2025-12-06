@@ -42,23 +42,30 @@ def apply_provider_overrides(yaml_struct, overrides, provider_name):
 
     provider_data = overrides.get(provider_name)
     if not provider_data:
-        # Aucun override pour ce provider → rien à changer
         return yaml_struct
 
-    # --- Cas 1 : annotations (Service, Ingress)
-    if "annotations" in provider_data:
-        yaml_struct.setdefault("metadata", {})
-        yaml_struct["metadata"].setdefault("annotations", {})
+    # --- Normalisation: s'assurer que metadata.annotations existe et est un dict ---
+    yaml_struct.setdefault("metadata", {})
 
+    annotations = yaml_struct["metadata"].get("annotations")
+
+    # Si annotations est une string, None ou autre → convertir en dict
+    if not isinstance(annotations, dict):
+        yaml_struct["metadata"]["annotations"] = {}
+    else:
+        yaml_struct["metadata"]["annotations"] = annotations.copy()
+
+    # --- Cas 1 : ajouter les annotations provider ---
+    if "annotations" in provider_data:
         for key, value in provider_data["annotations"].items():
             yaml_struct["metadata"]["annotations"][key] = value
 
-    # --- Cas 2 : storageClassName (PVC)
+    # --- Cas 2 : StorageClassName (PVC)
     if "storageClassName" in provider_data:
         yaml_struct.setdefault("spec", {})
         yaml_struct["spec"]["storageClassName"] = provider_data["storageClassName"]
 
-    # --- Cas 3 : autres futures clés (extensible)
+    # --- Cas 3 : autres extensions futures ---
     for key, value in provider_data.items():
         if key not in ["annotations", "storageClassName"]:
             yaml_struct[key] = value
